@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import pool from "./db.js";
 import dotenv from "dotenv";
-
+const normalizePostcode = (p) => p.replace(/\s+/g, '').toUpperCase();
 dotenv.config();
 
 const app = express();
@@ -17,7 +17,7 @@ app.get("/api/delivery/:postcode", async (req, res) => {
   try {
     const [rows] = await pool.query(
       "SELECT * FROM postcodes WHERE postcode = ?",
-      [postcode.trim().toUpperCase()]
+      [normalizePostcode(postcode)]
     );
 
     if (rows.length === 0) {
@@ -52,7 +52,7 @@ app.post("/api/delivery", async (req, res) => {
        ON DUPLICATE KEY UPDATE 
        economy_price = VALUES(economy_price), 
        premium_price = VALUES(premium_price)`,
-      [postcode.trim().toUpperCase(), economy, premium]
+      [normalizePostcode(postcode), economy, premium]
     );
     res.json({ message: "Inserted/Updated successfully" });
   } catch (err) {
@@ -69,7 +69,7 @@ app.put("/api/delivery/:postcode", async (req, res) => {
       `UPDATE postcodes 
        SET economy_price = ?, premium_price = ? 
        WHERE postcode = ?`,
-      [economy, premium, postcode.trim().toUpperCase()]
+      [economy, premium, normalizePostcode(postcode)]
     );
     res.json({ message: "Updated successfully" });
   } catch (err) {
@@ -84,7 +84,7 @@ app.get("/api/delivery/search/:prefix", async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM postcodes WHERE postcode LIKE ? ORDER BY postcode ASC`,
-      [`${prefix.toUpperCase()}%`]
+      [`${normalizePostcode(prefix)}%`]
     );
     if (rows.length === 0) return res.status(404).json({ message: "No records found" });
     res.json(rows);
