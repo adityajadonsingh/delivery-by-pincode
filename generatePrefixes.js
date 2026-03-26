@@ -138,35 +138,37 @@ const expandRange = (range) => {
 };
 
 // 🔥 MAIN
-let queries = [];
+const prefixMap = new Map();
 
 zones.forEach(({ zone, data }) => {
   data.forEach(item => {
     item = item.trim();
 
-    // handle special case text
     if (item.includes("KW16")) {
-      queries.push(`('KW16', '${zone}')`);
+      prefixMap.set("KW16", zone);
       return;
     }
+
     if (item.includes("ZE2")) {
-      queries.push(`('ZE2', '${zone}')`);
+      prefixMap.set("ZE2", zone);
       return;
     }
 
     if (item.includes("-")) {
       const expanded = expandRange(item);
       expanded.forEach(p => {
-        queries.push(`('${p}', '${zone}')`);
+        prefixMap.set(p, zone);
       });
     } else {
-      queries.push(`('${item}', '${zone}')`);
+      prefixMap.set(item, zone);
     }
   });
 });
 
-// remove duplicates
-queries = [...new Set(queries)];
+// convert to SQL
+const queries = Array.from(prefixMap.entries()).map(
+  ([prefix, zone]) => `('${prefix}', '${zone}')`
+);
 
 const sql = `
 INSERT INTO postcode_zones (prefix, zone_name)
