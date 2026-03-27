@@ -39,7 +39,7 @@ app.get("/api/delivery/:postcode", async (req, res) => {
       ORDER BY LENGTH(prefix) DESC
       LIMIT 1
       `,
-      prefixes
+      prefixes,
     );
 
     if (zoneRows.length === 0) {
@@ -51,7 +51,7 @@ app.get("/api/delivery/:postcode", async (req, res) => {
     // 💰 Get zone pricing
     const [priceRows] = await pool.query(
       `SELECT * FROM zones WHERE zone_name = ?`,
-      [zoneName]
+      [zoneName],
     );
 
     if (priceRows.length === 0) {
@@ -67,7 +67,6 @@ app.get("/api/delivery/:postcode", async (req, res) => {
       economy_price: economy,
       premium_price: premium,
     });
-
   } catch (err) {
     console.error("Error:", err);
     res.status(500).json({ message: "Internal server error" });
@@ -79,6 +78,47 @@ app.get("/", (req, res) => {
   res.send("🚚 Delivery Service API (Zone Based) running!");
 });
 
+app.get("/api/zones", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT *
+      FROM zones
+      ORDER BY
+        CASE
+          WHEN zone_name = 'local' THEN 0
+          WHEN zone_name = 'inner_london' THEN 1
+          WHEN zone_name = 'outer_london' THEN 2
+          WHEN zone_name = 'central_london' THEN 3
+          ELSE 4
+        END,
+        CAST(SUBSTRING_INDEX(zone_name, '_', -1) AS UNSIGNED),
+        zone_name
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Error fetching zones" });
+  }
+});
+
+// ✅ Update zone price
+app.put("/api/zones/:zone", async (req, res) => {
+  const { zone } = req.params;
+  const { economy } = req.body;
+
+  try {
+    await pool.query("UPDATE zones SET economy_price = ? WHERE zone_name = ?", [
+      economy,
+      zone,
+    ]);
+
+    res.json({ message: "Zone updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Update failed" });
+  }
+});
 
 // 🔍 NEW Search (prefix-based from postcode_zones)
 app.get("/api/delivery/search/:prefix", async (req, res) => {
@@ -96,7 +136,7 @@ app.get("/api/delivery/search/:prefix", async (req, res) => {
       ORDER BY pz.prefix ASC
       LIMIT 50
       `,
-      [`${clean}%`]
+      [`${clean}%`],
     );
 
     if (rows.length === 0) {
@@ -112,13 +152,11 @@ app.get("/api/delivery/search/:prefix", async (req, res) => {
     }));
 
     res.json(result);
-
   } catch (err) {
     console.error("Search error:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
 
 // ⚠️ OPTIONAL (KEEP FOR BACKUP PURPOSE ONLY)
 // You can delete later once confident
@@ -135,9 +173,6 @@ app.put("/api/delivery/:postcode", async (req, res) => {
   });
 });
 
-
 // ✅ Start server
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () =>
-  console.log(`✅ Server running on port ${PORT}`)
-);
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
